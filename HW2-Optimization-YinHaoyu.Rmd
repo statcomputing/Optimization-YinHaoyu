@@ -1,0 +1,562 @@
+---
+title: "Homework 2"
+author: "Yin Haoyu"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+documentclass: article
+papersize: letter
+fontsize: 11pt
+output: pdf_document
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+rm(list=ls())
+if (!require("knitr")) 
+  install.packages("knitr",dependencies = TRUE) 
+
+## specify global chunk options
+knitr::opts_chunk$set(fig.width = 16, fig.height = 5, dpi = 300,
+                      out.width = "90%", fig.align = "center")
+```
+
+###Exercise 1
+
+##(a)
+From the known conditions, we have the probability density function of the samples as follow: 
+$$
+p(x;\theta)=\frac{1}{\pi[1+(x-\theta)^2]}
+$$
+And as we know that the samples — $\{x_1,...,x_n\}$ are i.i.d., we can deduce the formula of log-likelihood function of $\theta$:
+
+$$\begin{aligned}
+l(\theta)&=\ln(\prod_{i=1}^n p(x_i;\theta))\\
+&=\ln(\prod_{i=1}^n \frac{1}{\pi[1+(x_i-\theta)^2]})\\
+&=\sum_{i=1}^n\ln(\frac{1}{\pi[1+(x_i-\theta)^2]})\\
+&=-n\ln\pi-\sum_{i=1}^n\ln[1+(\theta-x_i)^2]\\
+\end{aligned}$$
+
+Then we can get the first derivative of $l(\theta)$:
+$$
+l\,'(\theta)=-2\sum_{i=1}^n\frac{\theta-x_i}{1+(\theta-x_i)^2}
+$$
+Next we can get the second derivative of $l(\theta)$:
+$$
+l\,''(\theta)=-2\sum_{i=1}^n\frac{1-(\theta-x_i)^2}{[1+(\theta-x_i)^2]^2}
+$$
+
+Last but not least, for the fisher scoring value $I(\theta)$:
+$$
+I(\theta)=n\int\frac{\left \{p'(x)\right \}^2}{p(x)}dx
+$$
+And for the first derivative of $p(x)$:
+$$
+p\,'(x)=\frac{-2(x-\theta)}{\pi[1+(x-\theta)^2]^2}
+$$
+
+Therefore, we get:
+$$
+I(\theta)=\frac{4n}{\pi}\int_{-\infty}^\infty\frac{x^2dx}{(1+x^2)^3}
+$$
+
+Using variable substitution: $x=\tan(t)$ where $t\in(-\frac{\pi}{2},\frac{\pi}{2})$, thus we can update the formula of the fisher information of $\theta$:
+
+$$\begin{aligned}
+I(\theta)&=\frac{4n}{\pi} \int_{-\frac{\pi}{2}}^{\frac{\pi}{2}} \frac{\tan^2(t)d(\tan(t))}{(1+tan^2(t))^3}\\
+&=\frac{4n}{\pi}\int_{-\frac{\pi}{2}}^{\frac{\pi}{2}}\frac{\tan^2(t)}
+{(\frac{1}{\sec^2(t)})^3}(\frac{1}{\sec^2(t)})dt\\
+&=\frac{4n}{\pi}\int_{-\frac{\pi}{2}}^{\frac{\pi}{2}}\frac{\sin^2(t)}{\cos^2(t)}\cos^4(t)dt\\
+&=\frac{4n}{\pi}\int_{-\frac{\pi}{2}}^{\frac{\pi}{2}}\sin^2(t)\cos^2(t)dt\\
+&=\frac{4n}{\pi}*\frac{\pi}{8}=\frac{n}{2}
+\end{aligned}$$
+
+In conclusion, $I(\theta)=\frac{n}{2}$.
+
+##(b)
+Firstly, we graph the log-likelihood function:
+```{r Exercise 1(b) graph}
+#Exercise 1(b)
+x <- c(1.77,-0.23,2.76,3.80,3.47,56.75,-1.34,4.24,-2.44,
+       3.29,3.71,-2.40,4.53,-0.07,-1.05,-13.87,-2.53,-1.75)
+#l(theta)
+log_like <- function(theta,x. = x){
+  sum(-log(pi)-log(1+(x. - theta)^2))
+}
+l_like <- Vectorize(log_like)
+#graph the log-likelihood function, limit from -100 to 100
+curve(l_like, from = -50, to = 50, n = 1000)
+```
+
+```{r Exercise 1(b), echo=FALSE}
+#l'(theta)
+l_p <- function(theta,x. = x){
+  -2*sum((theta-x.)/(1+(theta-x.)^2))
+}
+#l''(theta)
+l_pp <- function(theta,x. = x)
+{
+  -2*sum((1-(theta-x.)^2)/((1+(theta-x.)^2)^2))
+}
+
+#starting points
+sta_p <- c(-11, -1, 0, 1.5, 4, 4.7, 7, 8, 38)
+
+theta_1b <- rep(NA,length(sta_p))
+count_1b <- rep(NA,length(sta_p))
+lval_1b <- rep(NA,length(sta_p))
+
+#Newton-Raphson method
+for(i in 1:length(sta_p)){
+  theta <- sta_p[i]
+  count <- 0
+  process <- TRUE
+  while(process){
+    l <- log_like(theta, x. = x)
+    l1 <- l_p(theta, x. = x)
+    l2 <- l_pp(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta - l1/l2
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  theta_1b[i] <- theta
+  count_1b[i] <- count
+  lval_1b[i] <- log_like(theta, x. = x)
+}
+```
+
+The results shown below are the numbers of iterations and the values of log-likelihood function:
+```{r Newton Method results}
+count_1b
+lval_1b
+```
+
+In addition, if we choose the sample mean as another starting point:
+
+```{r sample mean, echo=FALSE}
+#Take the sample mean as another starting point
+start_p2 <- mean(x)
+
+thetas_1b2 <- rep(NA,length(start_p2))
+counts_1b2 <- rep(NA,length(start_p2))
+lvals_1b2 <- rep(NA,length(start_p2))
+
+#Newton-Raphson method
+theta <- start_p2
+  count <- 0
+  process <- TRUE
+  while(process){
+    l <- log_like(theta, x. = x)
+    l1 <- l_p(theta, x. = x)
+    l2 <- l_pp(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta - l1/l2
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  theta_1b2 <- theta
+  count_1b2 <- count
+  lval_1b2 <- log_like(theta, x. = x)
+```
+
+```{r sample mean result}
+count_1b2
+lval_1b2
+```
+To sum up, when we choose the sample mean as a new starting point, the number of Newton method iteration is 5 and the log-likelyhood function value is approximate to maximum, which meas a well-performed starting point.
+
+##(c)
+```{r Exercise 1(c), echo=FALSE}
+G <- function(theta, x. = x, alpha. = alpha){
+  alpha * l_p(theta, x. = x) + theta
+}
+alphas <- c(1, 0.64, 0.25)
+thetas_1c <- matrix(NA,length(sta_p),length(alphas))
+counts_1c <- matrix(NA,length(sta_p),length(alphas))
+lvals_1c <- matrix(NA,length(sta_p),length(alphas))
+
+#Fixed-point iteration
+for(j in 1:length(sta_p)){
+  theta <- sta_p[j]
+  for (k in 1:length(alphas)){
+    alpha <- alphas[k]
+    count <- 0
+    process <- TRUE
+    while(process){
+      l1 <- l_p(theta, x. = x)
+      #G(x) = alpha * l'(theta) + theta
+      theta <- G(theta, x. = x, alpha. = alpha)
+      count <- count + 1
+      #let l1 close to 0 and test less than 1000 times
+      if(abs(l1) < 1e-8 | count == 1000){
+        process = FALSE
+        thetas_1c[j,k] <- theta
+        counts_1c[j,k] <- count
+        lvals_1c[j,k] <- log_like(theta, x. = x)       
+      }
+    }
+  }
+}
+
+row.names(thetas_1c) <- sta_p
+row.names(counts_1c) <- sta_p
+row.names(lvals_1c) <- sta_p
+colnames(thetas_1c) <- alphas
+colnames(counts_1c) <- alphas
+colnames(lvals_1c) <- alphas
+```
+```{r}
+counts_1c
+thetas_1c
+```
+##(d)
+```{r Exercise 1(d),echo=FALSE}
+#I(theta) = n/2
+I <- length(x)/2
+
+thetas_1d <- rep(NA,length(sta_p))
+counts_1d <- rep(NA,length(sta_p))
+lvals_1d <- rep(NA,length(sta_p))
+
+#fisher scoring
+for(n in 1:length(sta_p)){
+  theta <- sta_p[n]
+  count <- 0
+  process <- TRUE
+  while(process){
+    l1 <- l_p(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta + l1/I
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  thetas_1d[n] <- theta
+  counts_1d[n] <- count
+  lvals_1d[n] <- log_like(theta, x. = x)
+}
+
+#Newton raaphson method again
+thetas_1dn <- rep(NA,length(sta_p))
+counts_1dn <- rep(NA,length(sta_p))
+lvals_1dn <- rep(NA,length(sta_p))
+
+for(i in 1:length(sta_p)){
+  theta <- thetas_1d[i]
+  count <- 0
+  process <- TRUE
+  while(process){
+    l <- log_like(theta, x. = x)
+    l1 <- l_p(theta, x. = x)
+    l2 <- l_pp(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta - l1/l2
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  thetas_1dn[i] <- theta
+  counts_1dn[i] <- count
+  lvals_1dn[i] <- log_like(theta, x. = x)
+}
+```
+```{r}
+counts_1d
+thetas_1d
+```
+##(e)
+In a nutshell, we can do a comparison among the three different methods that we have applied above with respect to counts and $\theta$:
+```{r counts}
+count_1b
+knitr::kable(counts_1c)
+counts_1d
+```
+
+```{r thetas}
+theta_1b
+knitr::kable(thetas_1c)
+thetas_1d
+```
+
+As it is shown in the tables above, we notice that Newton-Raphson method converges faster towards the maximum value of the log-likelihood than other methods in most of starting values, the only one exception is when comparing with fixed-point method in the condition that alpha equals to 0.25, the latter method has a better performance of approaching. In addition, there is one phenomenon which we cannot ignore is that the iteration numbers of Newton-Raphson method will be much bigger and the final estimated thetas diverge to infinite as we may use some other different starting points to do the iteration, which means the non-ideal stability of that method.
+
+Then for the fixed-point iteration, we can find that its approaching performance depends strongly on what value of $\alpha$ we have selected. For instance, when $\alpha$ equals to 1, the number of iteration times is more than ten thousand. 
+
+Finally, as for Fisher Scoring, we find that the speed of convergency is faster than the other two methods in the first a few steps of iteration, however, it will use more times to reach the MLE than the other two methods, so it is often used in the beginning to make rapid improvements, and Newton’s method for refinement near the end.
+
+
+###Exercise 2
+
+##(a)
+According to the given condition, the probability density with respect to the parameter $\theta$ is:
+$$
+p(x;\theta)=\frac{1-\cos(x-\theta)}{2\pi}
+$$
+Thus, we can get the log-likelihood function of $\theta$:
+$$
+l(\theta) = -n\ln2\pi+\sum_{i=1}^n\ln[1-\cos(x_i-\theta)]
+$$
+
+Therefore, we can draw the graph of that function between $-\pi$ and $\pi$:
+```{r Exercise 2(a)}
+rm(list=ls())
+x <- c(3.91, 4.85, 2.28, 4.06, 3.70, 4.04, 5.46, 3.53, 2.28, 1.96,
+       2.53, 3.88, 2.22, 3.47, 4.82, 2.46, 2.99, 2.54, 0.52)
+
+#l(theta)
+log_like <- function(theta,x. = x){
+  sum(-log(2*pi)+log(1-cos(x. - theta)))
+}
+l_like <- Vectorize(log_like)
+#graph the log-likelihood function, limit from -pi to pi
+curve(l_like, from = -pi, to = pi, n = 1000)
+```
+
+##(b)
+According to the definition of the expectation of a random variable $x$, we can compute it regarding $\theta$ as a given constant in this situation:
+$$\begin{aligned}
+E[X|\theta]&=\int_0^{2\pi}x*\frac{1-\cos(x-\theta)}{2\pi}dx\\
+&=\int_0^{2\pi}\frac{x}{2\pi}dx-\int_0^{2\pi}\frac{x*\cos(x-\theta)}{2\pi}dx\\
+&=\frac{1}{2\pi}*\frac{x^2}{2}|_0^{2\pi}-\int_0^{2\pi}\frac{x}{2\pi}d[\sin(x-\theta)]\\
+&=\pi-\frac{x}{2\pi}*\sin(x-\theta)|_0^{2\pi}-\int_0^{2\pi}\sin(x-\theta)d(\frac{x}{2\pi})\\
+&=\pi-\sin(2\pi-\theta)-\frac{1}{2\pi}\int_{-\theta}^{2\pi-\theta}\sin{u}du\\
+&=\pi+\sin \theta+\frac{1}{2\pi}\cos{u}|_{-\theta}^{2\pi-\theta}\\
+&=\pi+\sin \theta
+\end{aligned}$$
+
+Therefore, we get the so-called "Method-of-moments" estimator of $\theta$:
+```{r Exercise 2(b)}
+#Exercise 2(b)
+estimator <-function(theta, x_mean){
+  pi+sin(theta)-x_mean
+}
+print(root1<-uniroot(estimator,c(0,pi/2),x_mean=mean(x))$root)
+
+print(root2<-uniroot(estimator,c(pi/2,pi),x_mean=mean(x))$root)
+```
+
+##(c) & (d)
+As the question (c) and the question (d) are just different with starting points, we can put all of the required starting points together:
+```{r starting points}
+#starting points
+sta_p <- c(root1, root2, -2.7, 2.7)
+```
+
+```{r Exercise 2(c) & (d),echo=FALSE}
+l_p <- function(theta, x. = x){
+  sum((sin(x-theta))/(1-cos(x-theta)))
+}
+l_pp <- function(theta, x. = x){
+  -sum(1/(cos(x-theta)-1))
+  }
+
+thetas_2cd <- rep(NA,length(sta_p))
+counts_2cd <- rep(NA,length(sta_p))
+lvals_2cd <- rep(NA,length(sta_p))
+
+#Newton-Raphson method
+for(i in 1:length(sta_p)){
+  theta <- sta_p[i]
+  count <- 0
+  process <- TRUE
+  while(process){
+    l <- log_like(theta, x. = x)
+    l1 <- l_p(theta, x. = x)
+    l2 <- l_pp(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta - l1/l2
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  thetas_2cd[i] <- theta
+  counts_2cd[i] <- count
+  lvals_2cd[i] <- log_like(theta, x. = x)
+}
+
+thetas_2cd <- matrix(thetas_2cd, ncol = length(sta_p))
+counts_2cd <- matrix(counts_2cd, ncol = length(sta_p))
+lvals_2cd <- matrix(lvals_2cd, ncol = length(sta_p))
+colnames(thetas_2cd) <- round(sta_p, digits = 2)
+colnames(counts_2cd) <- round(sta_p, digits = 2)
+colnames(lvals_2cd) <- round(sta_p, digits = 2)
+```
+
+Through those iterations above, we finally get:
+```{r Exercise 2(c) & (d) results}
+thetas_2cd
+counts_2cd
+lvals_2cd
+```
+
+##(e)
+```{r Exercise 2(e),echo=FALSE}
+###Exercise 2(e)
+#starting points
+sta_p <- seq(-pi, pi, length.out = 200)
+
+thetas_2e <- rep(NA,length(sta_p))
+counts_2e <- rep(NA,length(sta_p))
+lvals_2e <- rep(NA,length(sta_p))
+
+#Newton-Raphson method
+for(i in 1:length(sta_p)){
+  theta <- sta_p[i]
+  count <- 0
+  process <- TRUE
+  while(process){
+    l <- log_like(theta, x. = x)
+    l1 <- l_p(theta, x. = x)
+    l2 <- l_pp(theta, x. = x)
+    #theta_(t+1) = theta_t - l'(theta_t)/l''(theta_t)
+    theta <- theta - l1/l2
+    count <- count + 1
+    #let l1 close to 0 and test less than 1000 times
+    if(abs(l1) < 1e-8 | count == 1000)
+      process = FALSE
+  }
+  thetas_2e[i] <- theta
+  counts_2e[i] <- count
+  lvals_2e[i] <- log_like(theta, x. = x)
+}
+
+thetas_2e <- matrix(thetas_2e, ncol = length(sta_p))
+counts_2e <- matrix(counts_2e, ncol = length(sta_p))
+lvals_2e <- matrix(lvals_2e, ncol = length(sta_p))
+colnames(thetas_2e) <- round(sta_p, digits = 2)
+colnames(counts_2e) <- round(sta_p, digits = 2)
+colnames(lvals_2e) <- round(sta_p, digits = 2)
+```
+
+Then we can do the MLE and show the results in the following figure:
+```{r Exercise 2(e) graph}
+plot(sta_p, thetas_2e, main='MLE', ylab='MLE Value', xlab='Sta_p')
+```
+
+According to R's manual, We find that the "unique" function is used to eliminate the repetitive values of starting points which have the same estimator of $\theta$, in that case we can do the desired partition as follow:
+
+```{r partition}
+thetas_2e_p <- as.data.frame(round(t(thetas_2e), digits = 4))
+colnames(thetas_2e_p) <- c("MLE")
+unq <- unique(thetas_2e_p)
+knitr::kable(unq)
+```
+
+
+###Exercise 3
+
+##(a)
+```{r Exercise 3(a)}
+rm(list=ls())
+beetles <- data.frame(
+  days = c(0, 8, 28, 41, 63, 69, 97, 117, 135, 154),
+  beetles = c(2, 47, 192, 256, 768, 896, 1120, 896, 1184, 1024))
+
+ bias <- rep(NA, nrow(beetles))
+
+nls(beetles ~ (K*beetles[1])/(beetles[1]+(K-beetles[1])*exp(-r*days)), 
+    start = list(K = 500, r = 0.5), data = beetles, trace = TRUE)
+```
+
+According to the lecture notes, we can use "nls" function which built-in Guass-Newton method as the default approach to do the required iteration. And through that function, we fit the population growth model with: K = 1049.4065, r = 0.1183 and the residual sum-of-sqaures = 73420.
+
+##(b)
+```{r Exercise 3(b),echo=FALSE}
+###Exercise 3(b)
+gnmth <- function(r, K){
+  for (i in 1:nrow(beetles)){
+    bias[i] <- (beetles$beetles[i] - (K * beetles$beetles[1]) /
+                    (beetles$beetles[1] + (K - beetles$beetles[1])*exp(-r * beetles$days[i])))^2
+  }
+  return(sum(bias))
+}
+
+z <- matrix(0,100,100,byrow = TRUE)
+for (i in 1:100){
+  for(j in 1:100){
+    K <- 1000+5*j
+    r <- 0+0.005*i
+    z[j,i] <- gnmth(r, K)
+  }
+}
+
+r <- seq(0,0.5,length.out = 100)
+K <- seq(1000,1500,length.out = 100)
+contour(K,r,z)
+```
+
+##(c)
+
+In order to apply Newton method in high-dimensional situation, we should first compute the partial derivatives with respect to the parameters K, r and sigma.
+
+```{r Exercise 3(c),echo=FALSE}
+###Exercise 3(c)
+rm(list=ls())
+l <- expression(
+  log(1/(sqrt(2*pi)*sigma))-(log((2*2+2*(K-2)*exp(-r*0))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*47+47*(K-2)*exp(-r*8))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*192+192*(K-2)*exp(-r*28))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*256+256*(K-2)*exp(-r*41))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*768+768*(K-2)*exp(-r*63))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*896+896*(K-2)*exp(-r*69))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*1120+1120*(K-2)*exp(-r*97))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*896+896*(K-2)*exp(-r*117))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*1184+1184*(K-2)*exp(-r*135))/(2*K)))^2/(2*sigma^2)+
+  log(1/(sqrt(2*pi)*sigma))-(log((2*1024+1024*(K-2)*exp(-r*154))/(2*K)))^2/(2*sigma^2))
+
+lk <- D(l,"K")
+lr <- D(l,"r")
+ls <- D(l,"sigma")
+lkk <- D(D(l,"K"),"K")
+lkr <- D(D(l,"K"),"r")
+lks <- D(D(l,"K"),"sigma")
+lrr <- D(D(l,"r"),"r")
+lrs <- D(D(l,"r"),"sigma")
+lss <- D(D(l,"sigma"),"sigma")
+```
+
+Next, taking the results of question (a) in this exercise into consideration, we can set K = 1050, r = 0.12 and sigma = 0.6 as the initial values:
+
+```{r krsig}
+krsig <- matrix(c(1050, 0.12, 0.6))
+row.names(krsig) <- c("K", "r", "sigma")
+knitr::kable(krsig)
+```
+
+```{r krsig_s, echo=FALSE}
+count <- 0
+process <- TRUE
+while(process){
+  K <- krsig[1]
+  r <- krsig[2]
+  sigma <- krsig[3]
+  g <- matrix(c(eval(lk), eval(lr), eval(ls)))
+  gT <- t(g)
+  M <- matrix(c(eval(lkk),eval(lkr),eval(lks),eval(lkr),eval(lrr),
+                eval(lrs),eval(lks),eval(lrs),eval(lss)),byrow=TRUE,nrow=3)
+  MI <- solve(M)
+  krsig <-  krsig - MI %*% g
+  count <- count + 1
+  if(gT%*%g < 1e-8 | count == 100)
+    process = FALSE
+}
+
+count
+
+krsig_s <- matrix(c(K,r,sigma^2), ncol = 3)
+colnames(krsig_s) <- c("K", "r", "sigma_2")
+knitr::kable(krsig_s)
+```
+
+After 8 times iteration, we get the MLE values of K, r and $\sigma^2$. Based on the lecture notes and previous knowledge, we can get the variance of the estimators that we have just estimated above from the information matrix of those parameters, which can be obtained by computing the minus inverse of fisher information matrix. That is, each element in the diagonal of the information matrix means the variance of the related parameter that we have estimated. Therefore, we can easily see the desired variance through the matrix as follow:
+
+```{r variance}
+var <- solve(-M)
+colnames(var) <- row.names(var) <- c("K", "r", "sigma")
+knitr::kable(var)
+```
